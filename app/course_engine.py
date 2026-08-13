@@ -221,4 +221,41 @@ def analyse(symbol,daily,h4,h1,m15,min_score=7,rr=2.0,sl_buffer=.20,allow_eq=Fal
         risk=entry-sl
         target=ext_buy_target if ext_buy_target and ext_buy_target>entry else entry+risk*rr
         tp=target
-        if risk<=0 or
+        if risk<=0 or tp<=entry:
+            direction="WAIT"; warnings.append("Invalid BUY risk/target geometry.")
+        else:
+            reasons=[r for ok,r in buy_checks if ok]
+    elif ss>=min_score and ss>bs:
+        direction="SELL"; entry=price
+        structural=l_sth.price if l_sth else max(x["high"] for x in m15[-10:])
+        sl=structural+a*sl_buffer
+        risk=sl-entry
+        target=ext_sell_target if ext_sell_target and ext_sell_target<entry else entry-risk*rr
+        tp=target
+        if risk<=0 or tp>=entry:
+            direction="WAIT"; warnings.append("Invalid SELL risk/target geometry.")
+        else:
+            reasons=[r for ok,r in sell_checks if ok]
+
+    poi="BULLISH POI" if bull_poi else "BEARISH POI" if bear_poi else "NO FRESH POI"
+    liquidity="SSL SWEPT" if ssl else "BSL SWEPT" if bsl else "NO SWEEP"
+
+    levels={
+        "daily_ith": d_ith.price if d_ith else None,
+        "daily_itl": d_itl.price if d_itl else None,
+        "h4_ith": h_ith.price if h_ith else None,
+        "h4_itl": h_itl.price if h_itl else None,
+        "h1_sth": h_sth.price if h_sth else None,
+        "h1_stl": h_stl.price if h_stl else None,
+        "ltf_sth": l_sth.price if l_sth else None,
+        "ltf_stl": l_stl.price if l_stl else None,
+        "external_bsl": ext_bsl,
+        "external_ssl": ext_ssl,
+        "equilibrium": eq,
+    }
+
+    return Signal(
+        symbol,direction,"CONFIRMED" if direction!="WAIT" else "WAIT",
+        max(bs,ss),len(buy_checks),entry,sl,tp,rr,bias,zone,liquidity,poi,
+        reasons,warnings,levels,m15[-1]["time"]
+    )
